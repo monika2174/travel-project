@@ -1,0 +1,127 @@
+:root {
+  --primary: #0d6efd;
+  --dark: #1a1a2e;
+  --accent: #e94560;
+}
+
+body {
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  background-color: #f8f9fa;
+}
+
+.navbar-brand {
+  letter-spacing: 0.5px;
+}
+
+.hero {
+  position: relative;
+}
+
+.card {
+  border: none;
+  border-radius: 12px;
+  overflow: hidden;
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.12);
+}
+
+.card-img-top {
+  height: 200px;
+  object-fit: cover;
+}
+
+.hotel-card .card-img-top,
+.trip-card .card-img-top,
+.dest-card .card-img-top {
+  height: 220px;
+}
+
+.badge-star {
+  background: linear-gradient(135deg, #f5af19, #f12711);
+}
+
+.price-tag {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.section-title {
+  position: relative;
+  display: inline-block;
+  margin-bottom: 1.5rem;
+}
+
+.section-title::after {
+  content: '';
+  position: absolute;
+  bottom: -8px;
+  left: 0;
+  width: 50%;
+  height: 3px;
+  background: var(--primary);
+  border-radius: 2px;
+}
+
+.dashboard-stat {
+  border-radius: 12px;
+  padding: 1.25rem;
+  color: #fff;
+  transition: transform 0.2s;
+}
+
+.dashboard-stat:hover {
+  transform: scale(1.03);
+}
+
+.stat-1 { background: linear-gradient(135deg, #667eea, #764ba2); }
+.stat-2 { background: linear-gradient(135deg, #f093fb, #f5576c); }
+.stat-3 { background: linear-gradient(135deg, #4facfe, #00f2fe); }
+.stat-4 { background: linear-gradient(135deg, #43e97b, #38f9d7); }
+
+.sidebar {
+  min-height: calc(100vh - 56px);
+  background: var(--dark);
+}
+
+.sidebar .nav-link {
+  color: rgba(255, 255, 255, 0.75);
+  border-radius: 8px;
+  margin-bottom: 4px;
+}
+
+.sidebar .nav-link:hover,
+.sidebar .nav-link.active {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+.review-stars {
+  color: #ffc107;
+}
+
+footer {
+  margin-top: auto;
+}
+
+.favorite-btn.active {
+  color: #e94560;
+}
+
+.booking-summary {
+  background: #fff;
+  border-radius: 12px;
+  padding: 1.5rem;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+}
+
+@media (max-width: 768px) {
+  .card-img-top {
+    height: 160px;
+  }
+}

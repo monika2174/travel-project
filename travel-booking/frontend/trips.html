@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Trips – TravelBooking</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+  <link href="css/style.css" rel="stylesheet">
+</head>
+<body class="d-flex flex-column min-vh-100">
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark sticky-top">
+  <div class="container">
+    <a class="navbar-brand fw-bold" href="index.html"><i class="bi bi-globe2"></i> TravelBooking</a>
+    <button class="navbar-toggler" data-bs-toggle="collapse" data-bs-target="#nav"><span class="navbar-toggler-icon"></span></button>
+    <div class="collapse navbar-collapse" id="nav">
+      <ul class="navbar-nav me-auto">
+        <li class="nav-item"><a class="nav-link" href="index.html">Home</a></li>
+        <li class="nav-item"><a class="nav-link" href="destinations.html">Destinations</a></li>
+        <li class="nav-item"><a class="nav-link" href="hotels.html">Hotels</a></li>
+        <li class="nav-item"><a class="nav-link active" href="trips.html">Trips</a></li>
+      </ul>
+      <div id="authButtons">
+        <a href="login.html" class="btn btn-outline-light btn-sm me-2">Login</a>
+        <a href="register.html" class="btn btn-primary btn-sm">Register</a>
+      </div>
+    </div>
+  </div>
+</nav>
+
+<div class="container py-4">
+  <h2 class="mb-4">Travel Packages</h2>
+  <div class="row g-2 mb-4">
+    <div class="col-md-3"><input type="text" class="form-control" id="search" placeholder="Search trips..."></div>
+    <div class="col-md-2">
+      <select class="form-select" id="tripType">
+        <option value="">Any type</option>
+        <option value="cultural">Cultural</option>
+        <option value="adventure">Adventure</option>
+        <option value="romantic">Romantic</option>
+        <option value="beach">Beach</option>
+      </select>
+    </div>
+    <div class="col-md-2"><input type="number" class="form-control" id="minPrice" placeholder="Min price"></div>
+    <div class="col-md-2"><input type="number" class="form-control" id="maxPrice" placeholder="Max price"></div>
+    <div class="col-md-2"><button class="btn btn-primary w-100" onclick="loadTrips()">Filter</button></div>
+  </div>
+  <div class="row g-4" id="tripGrid">
+    <div class="col-12 text-center text-muted">Loading trips...</div>
+  </div>
+</div>
+
+<footer class="bg-dark text-white py-4 mt-auto">
+  <div class="container text-center"><p class="mb-0 small">&copy; 2026 TravelBooking</p></div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="js/config.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/api.js"></script>
+<script>
+async function loadTrips() {
+  let path = "/api/trips?";
+  const search = document.getElementById("search").value;
+  const type = document.getElementById("tripType").value;
+  const minP = document.getElementById("minPrice").value;
+  const maxP = document.getElementById("maxPrice").value;
+  if (search) path += `search=${encodeURIComponent(search)}&`;
+  if (type) path += `trip_type=${encodeURIComponent(type)}&`;
+  if (minP) path += `min_price=${minP}&`;
+  if (maxP) path += `max_price=${maxP}&`;
+  const grid = document.getElementById("tripGrid");
+  try {
+    const trips = await api(path);
+    if (!trips.length) {
+      grid.innerHTML = `<div class="col-12 text-center text-muted">No trips found.</div>`;
+      return;
+    }
+    grid.innerHTML = trips.map(t => `
+      <div class="col-md-6 col-lg-4">
+        <div class="card trip-card h-100">
+          <img src="${t.image_url || 'https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=600'}" class="card-img-top" alt="${t.title}">
+          <div class="card-body d-flex flex-column">
+            <h5 class="card-title">${t.title}</h5>
+            <p class="text-muted small mb-1">${t.duration_days} days · ${t.trip_type || 'Package'}</p>
+            <p class="small flex-grow-1">${(t.description || '').substring(0, 90)}...</p>
+            <div class="d-flex justify-content-between align-items-center mt-auto">
+              <span class="price-tag">$${t.price}</span>
+              <a href="trip-details.html?id=${t.id}" class="btn btn-sm btn-primary">View Details</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    `).join("");
+  } catch (e) {
+    grid.innerHTML = `<div class="col-12 text-center text-danger">${e.message}</div>`;
+  }
+}
+loadTrips();
+</script>
+</body>
+</html>

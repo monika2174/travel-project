@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dashboard – TravelBooking</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+  <link href="css/style.css" rel="stylesheet">
+</head>
+<body>
+<nav class="navbar navbar-dark bg-dark">
+  <div class="container-fluid">
+    <a class="navbar-brand fw-bold" href="index.html"><i class="bi bi-globe2"></i> TravelBooking</a>
+    <div>
+      <span class="text-white me-3" id="userName"></span>
+      <button class="btn btn-outline-light btn-sm" onclick="logout()">Logout</button>
+    </div>
+  </div>
+</nav>
+
+<div class="container-fluid">
+  <div class="row">
+    <div class="col-md-3 col-lg-2 sidebar p-3">
+      <nav class="nav flex-column" id="sideNav"></nav>
+    </div>
+    <div class="col-md-9 col-lg-10 p-4">
+      <div id="dashboardContent">
+        <div class="text-center text-muted py-5">Loading dashboard...</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="js/config.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/api.js"></script>
+<script>
+if (!requireAuth()) throw new Error("auth");
+
+const role = localStorage.getItem("role");
+const fullName = localStorage.getItem("full_name");
+document.getElementById("userName").textContent = fullName;
+
+const sideNav = document.getElementById("sideNav");
+const content = document.getElementById("dashboardContent");
+
+function setNav(items) {
+  sideNav.innerHTML = items.map((item, i) =>
+    `<a class="nav-link ${i === 0 ? 'active' : ''}" href="#" data-view="${item.view}" onclick="showView('${item.view}'); return false;">
+      <i class="bi ${item.icon}"></i> ${item.label}
+    </a>`
+  ).join("");
+}
+
+function showView(view) {
+  document.querySelectorAll("#sideNav .nav-link").forEach(el => {
+    el.classList.toggle("active", el.dataset.view === view);
+  });
+  if (view === "overview") loadOverview();
+  else if (view === "bookings") loadBookings();
+  else if (view === "favorites") loadFavoritesView();
+  else if (view === "hotels") loadManagerHotels();
+  else if (view === "trips") loadManagerTrips();
+  else if (view === "manage-bookings") loadManageBookings();
+  else if (view === "admin-stats") loadAdminStats();
+  else if (view === "admin-users") loadAdminUsers();
+  else if (view === "admin-hotels") loadAdminHotels();
+  else if (view === "admin-trips") loadAdminTrips();
+  else if (view === "admin-reviews") loadAdminReviews();
+}
+
+// ========== CUSTOMER ==========
+if (role === "customer") {
+  setNav([
+    { view: "overview", label: "Overview", icon: "bi-speedometer2" },
+    { view: "bookings", label: "My Bookings", icon: "bi-calendar-check" },
+    { view: "favorites", label: "Favorites", icon: "bi-heart" },
+  ]);
+  loadOverview();
+}
+
+async function loadOverview() {
+  try {
+    const hotelB = await api("/api/hotel-bookings");
+    const tripB = await api("/api/trip-bookings");
+    const favs = await api("/api/favorites").catch(() => []);
+    const all = [...hotelB, ...tripB];
+    const upcoming = all.filter(b => b.status === "pending" || b.status === "confirmed").length;
+    const completed = all.filter(b => b.status === "completed").length;
+    content.innerHTML = `
+      <h3>Welcome, ${fullName}</h3>
+      <p class="text-muted">Customer Dashboard</p>
+      <div class="row g-3 mb-4">
+        <div class="col-md-3"><div class="dashboard-stat stat-1"><h4>${all.length}</h4><small>Total Bookings</small></div></div>
+        <div class="col-md-3"><div class="dashboard-stat stat-2"><h4>${upcoming}</h4><small>Upcoming</small></div></div>
+        <div class="col-md-3"><div class="dashboard-stat stat-3"><h4>${completed}</h4><small>Completed</small></div></div>
+        <div class="col-md-3"><div class="dashboard-stat stat-4"><h4>${favs.length}</h4><small>Favorites</small></div></div>
+      </div>
+      <a href="hotels.html" class="btn btn-primary me-2">Browse Hotels</a>
+      <a href="trips.html" class="btn btn-outline-primary">Browse Trips</a>
+      <a href="favorites.html" class="btn btn-outline-secondary ms-2">Favorites Page</a>
+    `;
+  } catch (e) {
+    content.innerHTML = `<div class="alert alert-danger">${e.message}</div>`;
+  }
+}
+
+async function loadBookings() {
+  try {
+    const hotelB = await api("/api/hotel-bookings");
+    const tripB = await api("/api/trip-bookings");
+    content.innerHTML = `
+      <h3>My Bookings</h3>
+      <h5 class="mt-4">Hotel Bookings</h5>
+      <div class="table-responsive">
+        <table class="table table-hover">
+          <thead><tr><th>ID</th><th>Hotel ID</th><th>Dates</th><th>Guests</th><th>Total</th><th>Status</th><th></th></tr></thead>
+          <tbody>
+            ${hotelB.length ? hotelB.map(b => `
+              <tr>
+                <td>${b.id}</td><td>${b.hotel_id}</td>
+                <td>${b.check_in} → ${b.check_out}</td>
+                <td>${b.guests}</td><td>$${b.total_price}</td>
+                <td><span class="badge bg-${statusColor(b.status)}">${b.status}</span></td>
+                <td>${["pending","confirmed"].includes(b.status) ? `<button class="btn btn-sm btn-outline-danger" onclick="cancelHotel(${b.id})">Cancel</button>` : ""}</td>
+              </tr>
+            `).join("") : "<tr><td colspan='7' class='text-muted'>No hotel bookings</td></tr>"}
+          </tbody>
+        </table>
+      </div>
+      <h5 class="mt-4">Trip Bookings</h5>
+      <div class="table-responsive">
+        <table class="table table-hover">
+          <thead><tr><th>ID</th><th>Trip ID</th><th>Date</th><th>Travelers</th><th>Total</th><th>Status</th><th></th></tr></thead>
+          <tbody>
+            ${tripB.length ? tripB.map(b => `
+              <tr>
+                <td>${b.id}</td><td>${b.trip_id}</td>
+                <td>${b.travel_date}</td>
+                <td>${b.travelers}</td><td>$${b.total_price}</td>
+                <td><span class="badge bg-${statusColor(b.status)}">${b.status}</span></td>
+                <td>${["pending","confirmed"].includes(b.status) ? `<button class="btn btn-sm btn-outline-danger" onclick="cancelTrip(${b.id})">Cancel</button>` : ""}</td>
+              </tr>
+            `).join("") : "<tr><td colspan='7' class='text-muted'>No trip bookings</td></tr>"}
+          </tbody>
+        </table>
+      </div>
+    `;
+  } catch (e) {
+    content.innerHTML = `<div class="alert alert-danger">${e.message}</div>`;
+  }
+}
+
+function statusColor(s) {
+  return { pending: "warning", confirmed: "success", cancelled: "secondary", completed: "info", rejected: "danger" }[s] || "secondary";
+}
+
+async function cancelHotel(id) {
+  if (!confirm("Cancel this booking?")) return;
+  await api(`/api/hotel-bookings/${id}/cancel`, { method: "PUT" });
+  loadBookings();
+}
+async function cancelTrip(id) {
+  if (!confirm("Cancel this booking?")) return;
+  await api(`/api/trip-bookings/${id}/cancel`, { method: "PUT" });
+  loadBookings();
+}
+
+async function loadFavoritesView() {
+  content.innerHTML = `<p>See full favorites page:</p><a href="favorites.html" class="btn btn-primary">Open Favorites</a>`;
+}
+
+// ========== MANAGER ==========
+if (role === "manager") {
+  setNav([
+    { view: "overview", label: "Overview", icon: "bi-speedometer2" },
+    { view: "hotels", label: "My Hotels", icon: "bi-building" },
+    { view: "trips", label: "My Trips", icon: "bi-map" },
+    { view: "manage-bookings", label: "Bookings", icon: "bi-calendar-check" },
+  ]);
+  loadManagerOverview();
+}
+
+async function loadManagerOverview() {
+  try {
+    const hotels = await api("/api/hotels");
+    const trips = await api("/api/trips");
+    const hotelB = await api("/api/hotel-bookings");
+    const tripB = await api("/api/trip-bookings");
+    content.innerHTML = `
+      <h3>Manager Dashboard</h3>
+      <p class="text-muted">Welcome, ${fullName}</p>
+      <div class="row g-3 mb-4">
+        <div class="col-md-3"><div class="dashboard-stat stat-1"><h4>${hotels.length}</h4><small>Hotels (platform)</small></div></div>
+        <div class="col-md-3"><div class="dashboard-stat stat-2"><h4>${trips.length}</h4><small>Trips (platform)</small></div></div>
+        <div class="col-md-3"><div class="dashboard-stat stat-3"><h4>${hotelB.length + tripB.length}</h4><small>Bookings visible</small></div></div>
+        <div class="col-md-3"><div class="dashboard-stat stat-4"><h4>${hotelB.filter(b=>b.status==='pending').length}</h4><small>Pending hotel</small></div></div>
+      </div>
+      <button class="btn btn-primary me-2" onclick="showAddHotel()">Add Hotel</button>
+      <button class="btn btn-outline-primary" onclick="showAddTrip()">Add Trip</button>
+      <div id="managerForm" class="mt-4"></div>
+    `;
+  } catch (e) {
+    content.innerHTML = `<div class="alert alert-danger">${e.message}</div>`;
+  }
+}
+
+function showAddHotel() {
+  document.getElementById("managerForm").innerHTML = `
+    <div class="card p-3">
+      <h5>Add Hotel</h5>
+      <div class="row g-2">
+        <div class="col-md-6"><input class="form-control" id="hName" placeholder="Hotel name"></div>
+        <div class="col-md-6"><input class="form-control" id="hLoc" placeholder="Location"></div>
+        <div class="col-md-12"><textarea class="form-control" id="hDesc" placeholder="Description"></textarea></div>
+        <div class="col-md-4"><input type="number" class="form-control" id="hStars" value="4" min="1" max="5"></div>
+        <div class="col-md-4"><input class="form-control" id="hType" placeholder="Type (resort/boutique)"></div>
+        <div class="col-md-4"><input class="form-control" id="hImg" placeholder="Image URL"></div>
+        <div class="col-12"><button class="btn btn-success" onclick="createHotel()">Create</button></div>
+      </div>
+      <div id="hAlert" class="mt-2"></div>
+    </div>
+  `;
+}
+
+async function createHotel() {
+  try {
+    await api("/api/hotels", {
+      method: "POST",
+      body: JSON.stringify({
+        name: document.getElementById("hName").value,
+        location: document.getElementById("hLoc").value,
+        description: document.getElementById("hDesc").value,
+        star_rating: parseInt(document.getElementById("hStars").value) || 3,
+        hotel_type: document.getElementById("hType").value || null,
+        image_url: document.getElementById("hImg").value || null
+      })
+    });
+    document.getElementById("hAlert").innerHTML = `<div class="alert alert-success">Hotel created (pending approval if not admin)</div>`;
+  } catch (e) {
+    document.getElementById("hAlert").innerHTML = `<div class="alert alert-danger">${e.message}</div>`;
+  }
+}
+
+function showAddTrip() {
+  document.getElementById("managerForm").innerHTML = `
+    <div class="card p-3">
+      <h5>Add Trip</h5>
+      <div class="row g-2">
+        <div class="col-md-6"><input class="form-control" id="tTitle" placeholder="Title"></div>
+        <div class="col-md-3"><input type="number" class="form-control" id="tDays" placeholder="Days" value="5"></div>
+        <div class="col-md-3"><input type="number" class="form-control" id="tPrice" placeholder="Price" value="499"></div>
+        <div class="col-md-12"><textarea class="form-control" id="tDesc" placeholder="Description"></textarea></div>
+        <div class="col-md-4"><input class="form-control" id="tType" placeholder="Type"></div>
+        <div class="col-md-8"><input class="form-control" id="tImg" placeholder="Image URL"></div>
+        <div class="col-12"><button class="btn btn-success" onclick="createTrip()">Create</button></div>
+      </div>
+      <div id="tAlert" class="mt-2"></div>
+    </div>
+  `;
+}
+
+async function createTrip() {
+  try {
+    await api("/api/trips", {
+      method: "POST",
+      body: JSON.stringify({
+        title: document.getElementById("tTitle").value,
+        duration_days: parseInt(document.getElementById("tDays").value) || 5,
+        price: parseFloat(document.getElementById("tPrice").value) || 0,
+        description: document.getElementById("tDesc").value,
+        trip_type: document.getElementById("tType").value || null,
+        image_url: document.getElementById("tImg").value || null
+      })
+    });
+    document.getElementById("tAlert").innerHTML = `<div class="alert alert-success">Trip created</div>`;
+  } catch (e) {
+    document.getElementById("tAlert").innerHTML = `<div class="alert alert-danger">${e.message}</div>`;
+  }
+}
+
+async function loadManagerHotels() {
+  const hotels = await api("/api/hotels");
+  content.innerHTML = `<h3>Hotels</h3>
+    <button class="btn btn-primary mb-3" onclick="showAddHotel(); document.getElementById('managerForm')?.scrollIntoView()">Add Hotel</button>
+    <div id="managerForm"></div>
+    <div class="table-responsive"><table class="table"><thead><tr><th>ID</th><th>Name</th><th>Location</th><th>Stars</th><th>Status</th></tr></thead>
+    <tbody>${hotels.map(h => `<tr><td>${h.id}</td><td>${h.name}</td><td>${h.location||''}</td><td>${h.star_rating}</td><td>${h.approval_status}</td></tr>`).join("")}</tbody></table></div>`;
+}
+
+async function loadManagerTrips() {
+  const trips = await api("/api/trips");
+  content.innerHTML = `<h3>Trips</h3>
+    <button class="btn btn-primary mb-3" onclick="showAddTrip()">Add Trip</button>
+    <div id="managerForm"></div>
+    <div class="table-responsive"><table class="table"><thead><tr><th>ID</th><th>Title</th><th>Days</th><th>Price</th><th>Status</th></tr></thead>
+    <tbody>${trips.map(t => `<tr><td>${t.id}</td><td>${t.title}</td><td>${t.duration_days}</td><td>$${t.price}</td><td>${t.approval_status}</td></tr>`).join("")}</tbody></table></div>`;
+}
+
+async function loadManageBookings() {
+  const hotelB = await api("/api/hotel-bookings");
+  const tripB = await api("/api/trip-bookings");
+  content.innerHTML = `
+    <h3>Manage Bookings</h3>
+    <h5>Hotel</h5>
+    <table class="table table-sm"><thead><tr><th>ID</th><th>User</th><th>Hotel</th><th>Dates</th><th>Total</th><th>Status</th><th>Actions</th></tr></thead>
+    <tbody>${hotelB.map(b => `
+      <tr>
+        <td>${b.id}</td><td>${b.user_id}</td><td>${b.hotel_id}</td>
+        <td>${b.check_in}→${b.check_out}</td><td>$${b.total_price}</td>
+        <td><span class="badge bg-${statusColor(b.status)}">${b.status}</span></td>
+        <td>
+          ${b.status==='pending' ? `
+            <button class="btn btn-sm btn-success" onclick="setHotelStatus(${b.id},'confirmed')">Confirm</button>
+            <button class="btn btn-sm btn-danger" onclick="setHotelStatus(${b.id},'rejected')">Reject</button>
+          ` : ''}
+          ${b.status==='confirmed' ? `<button class="btn btn-sm btn-info" onclick="setHotelStatus(${b.id},'completed')">Complete</button>` : ''}
+        </td>
+      </tr>
+    `).join("")}</tbody></table>
+    <h5 class="mt-4">Trips</h5>
+    <table class="table table-sm"><thead><tr><th>ID</th><th>User</th><th>Trip</th><th>Date</th><th>Total</th><th>Status</th><th>Actions</th></tr></thead>
+    <tbody>${tripB.map(b => `
+      <tr>
+        <td>${b.id}</td><td>${b.user_id}</td><td>${b.trip_id}</td>
+        <td>${b.travel_date}</td><td>$${b.total_price}</td>
+        <td><span class="badge bg-${statusColor(b.status)}">${b.status}</span></td>
+        <td>
+          ${b.status==='pending' ? `
+            <button class="btn btn-sm btn-success" onclick="setTripStatus(${b.id},'confirmed')">Confirm</button>
+            <button class="btn btn-sm btn-danger" onclick="setTripStatus(${b.id},'rejected')">Reject</button>
+          ` : ''}
+          ${b.status==='confirmed' ? `<button class="btn btn-sm btn-info" onclick="setTripStatus(${b.id},'completed')">Complete</button>` : ''}
+        </td>
+      </tr>
+    `).join("")}</tbody></table>
+  `;
+}
+
+async function setHotelStatus(id, status) {
+  await api(`/api/hotel-bookings/${id}/status`, { method: "PUT", body: JSON.stringify({ status }) });
+  loadManageBookings();
+}
+async function setTripStatus(id, status) {
+  await api(`/api/trip-bookings/${id}/status`, { method: "PUT", body: JSON.stringify({ status }) });
+  loadManageBookings();
+}
+
+// ========== ADMIN ==========
+if (role === "admin") {
+  setNav([
+    { view: "admin-stats", label: "Statistics", icon: "bi-graph-up" },
+    { view: "admin-users", label: "Users", icon: "bi-people" },
+    { view: "admin-hotels", label: "Hotels", icon: "bi-building" },
+    { view: "admin-trips", label: "Trips", icon: "bi-map" },
+    { view: "admin-reviews", label: "Reviews", icon: "bi-star" },
+  ]);
+  loadAdminStats();
+}
+
+async function loadAdminStats() {
+  try {
+    const s = await api("/api/admin/dashboard");
+    content.innerHTML = `
+      <h3>Admin Dashboard</h3>
+      <div class="row g-3">
+        <div class="col-md-3"><div class="dashboard-stat stat-1"><h4>${s.total_users}</h4><small>Users</small></div></div>
+        <div class="col-md-3"><div class="dashboard-stat stat-2"><h4>${s.total_hotels}</h4><small>Hotels</small></div></div>
+        <div class="col-md-3"><div class="dashboard-stat stat-3"><h4>${s.total_trips}</h4><small>Trips</small></div></div>
+        <div class="col-md-3"><div class="dashboard-stat stat-4"><h4>${s.total_bookings}</h4><small>Bookings</small></div></div>
+        <div class="col-md-4"><div class="dashboard-stat stat-1"><h4>$${s.total_revenue.toFixed(0)}</h4><small>Revenue</small></div></div>
+        <div class="col-md-4"><div class="dashboard-stat stat-2"><h4>${s.pending_approvals}</h4><small>Pending Approvals</small></div></div>
+        <div class="col-md-4"><div class="dashboard-stat stat-3"><h4>${s.total_reviews}</h4><small>Reviews</small></div></div>
+      </div>
+    `;
+  } catch (e) {
+    content.innerHTML = `<div class="alert alert-danger">${e.message}</div>`;
+  }
+}
+
+async function loadAdminUsers() {
+  const users = await api("/api/admin/users");
+  content.innerHTML = `<h3>Users</h3>
+    <table class="table table-hover"><thead><tr><th>ID</th><th>Name</th><th>Email</th><th>Role</th><th>Active</th><th></th></tr></thead>
+    <tbody>${users.map(u => `
+      <tr>
+        <td>${u.id}</td><td>${u.full_name}</td><td>${u.email}</td>
+        <td><span class="badge bg-secondary">${u.role}</span></td>
+        <td>${u.is_active ? 'Yes' : 'No'}</td>
+        <td>
+          <button class="btn btn-sm btn-outline-warning" onclick="toggleUser(${u.id})">Toggle Active</button>
+        </td>
+      </tr>
+    `).join("")}</tbody></table>`;
+}
+
+async function toggleUser(id) {
+  await api(`/api/admin/users/${id}/toggle-active`, { method: "PUT" });
+  loadAdminUsers();
+}
+
+async function loadAdminHotels() {
+  const hotels = await api("/api/admin/hotels");
+  content.innerHTML = `<h3>Hotels</h3>
+    <table class="table"><thead><tr><th>ID</th><th>Name</th><th>Location</th><th>Status</th><th>Actions</th></tr></thead>
+    <tbody>${hotels.map(h => `
+      <tr>
+        <td>${h.id}</td><td>${h.name}</td><td>${h.location||''}</td>
+        <td>${h.approval_status}</td>
+        <td>
+          ${h.approval_status==='pending' ? `
+            <button class="btn btn-sm btn-success" onclick="approveHotel(${h.id})">Approve</button>
+            <button class="btn btn-sm btn-danger" onclick="rejectHotel(${h.id})">Reject</button>
+          ` : ''}
+        </td>
+      </tr>
+    `).join("")}</tbody></table>`;
+}
+
+async function approveHotel(id) {
+  await api(`/api/admin/hotels/${id}/approve`, { method: "PUT" });
+  loadAdminHotels();
+}
+async function rejectHotel(id) {
+  await api(`/api/admin/hotels/${id}/reject`, { method: "PUT" });
+  loadAdminHotels();
+}
+
+async function loadAdminTrips() {
+  const trips = await api("/api/admin/trips");
+  content.innerHTML = `<h3>Trips</h3>
+    <table class="table"><thead><tr><th>ID</th><th>Title</th><th>Price</th><th>Status</th><th>Actions</th></tr></thead>
+    <tbody>${trips.map(t => `
+      <tr>
+        <td>${t.id}</td><td>${t.title}</td><td>$${t.price}</td>
+        <td>${t.approval_status}</td>
+        <td>
+          ${t.approval_status==='pending' ? `
+            <button class="btn btn-sm btn-success" onclick="approveTrip(${t.id})">Approve</button>
+            <button class="btn btn-sm btn-danger" onclick="rejectTrip(${t.id})">Reject</button>
+          ` : ''}
+        </td>
+      </tr>
+    `).join("")}</tbody></table>`;
+}
+
+async function approveTrip(id) {
+  await api(`/api/admin/trips/${id}/approve`, { method: "PUT" });
+  loadAdminTrips();
+}
+async function rejectTrip(id) {
+  await api(`/api/admin/trips/${id}/reject`, { method: "PUT" });
+  loadAdminTrips();
+}
+
+async function loadAdminReviews() {
+  const reviews = await api("/api/admin/reviews");
+  content.innerHTML = `<h3>Reviews</h3>
+    <table class="table"><thead><tr><th>ID</th><th>User</th><th>Hotel/Trip</th><th>Rating</th><th>Title</th><th></th></tr></thead>
+    <tbody>${reviews.map(r => `
+      <tr>
+        <td>${r.id}</td><td>${r.user_id}</td>
+        <td>${r.hotel_id ? 'Hotel '+r.hotel_id : 'Trip '+r.trip_id}</td>
+        <td>${r.rating}★</td><td>${r.title||''}</td>
+        <td><button class="btn btn-sm btn-outline-danger" onclick="deleteReview(${r.id})">Delete</button></td>
+      </tr>
+    `).join("")}</tbody></table>`;
+}
+
+async function deleteReview(id) {
+  if (!confirm("Delete review?")) return;
+  await api(`/api/reviews/${id}`, { method: "DELETE" });
+  loadAdminReviews();
+}
+</script>
+</body>
+</html>

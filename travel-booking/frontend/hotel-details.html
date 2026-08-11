@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Hotel Details – TravelBooking</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+  <link href="css/style.css" rel="stylesheet">
+</head>
+<body class="d-flex flex-column min-vh-100">
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark sticky-top">
+  <div class="container">
+    <a class="navbar-brand fw-bold" href="index.html"><i class="bi bi-globe2"></i> TravelBooking</a>
+    <button class="navbar-toggler" data-bs-toggle="collapse" data-bs-target="#nav"><span class="navbar-toggler-icon"></span></button>
+    <div class="collapse navbar-collapse" id="nav">
+      <ul class="navbar-nav me-auto">
+        <li class="nav-item"><a class="nav-link" href="index.html">Home</a></li>
+        <li class="nav-item"><a class="nav-link" href="hotels.html">Hotels</a></li>
+        <li class="nav-item"><a class="nav-link" href="trips.html">Trips</a></li>
+      </ul>
+      <div id="authButtons">
+        <a href="login.html" class="btn btn-outline-light btn-sm me-2">Login</a>
+        <a href="register.html" class="btn btn-primary btn-sm">Register</a>
+      </div>
+    </div>
+  </div>
+</nav>
+
+<div class="container py-4" id="content">
+  <div class="text-center text-muted py-5">Loading hotel...</div>
+</div>
+
+<footer class="bg-dark text-white py-4 mt-auto">
+  <div class="container text-center"><p class="mb-0 small">&copy; 2026 TravelBooking</p></div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="js/config.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/api.js"></script>
+<script>
+const hotelId = new URLSearchParams(location.search).get("id");
+if (!hotelId) location.href = "hotels.html";
+
+let currentHotel = null;
+let rooms = [];
+
+async function load() {
+  try {
+    currentHotel = await api(`/api/hotels/${hotelId}`);
+    rooms = await api(`/api/hotels/${hotelId}/rooms`);
+    const reviews = await api(`/api/reviews?hotel_id=${hotelId}`).catch(() => []);
+
+    document.getElementById("content").innerHTML = `
+      <div class="row">
+        <div class="col-lg-8">
+          <img src="${currentHotel.image_url || 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=1000'}" class="img-fluid rounded-3 mb-3 w-100" style="max-height:400px;object-fit:cover" alt="">
+          <h2>${currentHotel.name}</h2>
+          <p class="text-muted"><i class="bi bi-geo-alt"></i> ${currentHotel.location || ''} · <span class="review-stars">${starsHtml(currentHotel.star_rating)}</span></p>
+          <p>${currentHotel.description || ''}</p>
+          <h4 class="mt-4">Available Rooms</h4>
+          <div class="row g-3" id="roomsList">
+            ${rooms.length ? rooms.map(r => `
+              <div class="col-md-6">
+                <div class="card h-100">
+                  <div class="card-body">
+                    <h5>${r.room_type}</h5>
+                    <p class="small text-muted">${r.description || 'Comfortable room'}</p>
+                    <p>Capacity: ${r.capacity} · <span class="price-tag">$${r.price_per_night}/night</span></p>
+                    <button class="btn btn-sm btn-primary" onclick="selectRoom(${r.id}, ${r.price_per_night}, '${r.room_type}')">Select</button>
+                  </div>
+                </div>
+              </div>
+            `).join("") : '<p class="text-muted">No rooms listed yet.</p>'}
+          </div>
+          <h4 class="mt-4">Reviews</h4>
+          <div id="reviewsList">
+            ${reviews.length ? reviews.map(r => `
+              <div class="border-bottom py-2">
+                <div class="review-stars">${starsHtml(r.rating)}</div>
+                <strong>${r.title || 'Review'}</strong>
+                <p class="small mb-0">${r.description || ''}</p>
+                <span class="text-muted small">${new Date(r.created_at).toLocaleDateString()}</span>
+              </div>
+            `).join("") : '<p class="text-muted">No reviews yet.</p>'}
+          </div>
+        </div>
+        <div class="col-lg-4" id="book">
+          <div class="booking-summary sticky-top" style="top:80px">
+            <h5>Book this hotel</h5>
+            <div class="mb-2">
+              <label class="form-label small">Room</label>
+              <select class="form-select" id="roomSelect">
+                <option value="">Select room</option>
+                ${rooms.map(r => `<option value="${r.id}" data-price="${r.price_per_night}">${r.room_type} – $${r.price_per_night}/night</option>`).join("")}
+              </select>
+            </div>
+            <div class="mb-2">
+              <label class="form-label small">Check-in</label>
+              <input type="date" class="form-control" id="checkIn">
+            </div>
+            <div class="mb-2">
+              <label class="form-label small">Check-out</label>
+              <input type="date" class="form-control" id="checkOut">
+            </div>
+            <div class="mb-2">
+              <label class="form-label small">Guests</label>
+              <input type="number" class="form-control" id="guests" value="2" min="1">
+            </div>
+            <div class="mb-3" id="pricePreview"></div>
+            <button class="btn btn-primary w-100" onclick="bookHotel()">Confirm Booking</button>
+            <div id="bookAlert" class="mt-2"></div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    document.getElementById("roomSelect").addEventListener("change", updatePreview);
+    document.getElementById("checkIn").addEventListener("change", updatePreview);
+    document.getElementById("checkOut").addEventListener("change", updatePreview);
+  } catch (e) {
+    document.getElementById("content").innerHTML = `<div class="alert alert-danger">${e.message}</div>`;
+  }
+}
+
+function selectRoom(id, price, name) {
+  document.getElementById("roomSelect").value = id;
+  updatePreview();
+  document.getElementById("book").scrollIntoView({ behavior: "smooth" });
+}
+
+function updatePreview() {
+  const sel = document.getElementById("roomSelect");
+  const opt = sel.options[sel.selectedIndex];
+  const price = opt ? parseFloat(opt.dataset.price || 0) : 0;
+  const cin = document.getElementById("checkIn").value;
+  const cout = document.getElementById("checkOut").value;
+  let html = "";
+  if (cin && cout && price) {
+    const nights = Math.max(0, (new Date(cout) - new Date(cin)) / 86400000);
+    if (nights > 0) html = `<strong>Total: $${(nights * price).toFixed(2)}</strong> (${nights} night${nights > 1 ? 's' : ''})`;
+  }
+  document.getElementById("pricePreview").innerHTML = html;
+}
+
+async function bookHotel() {
+  if (!getToken()) { location.href = "login.html"; return; }
+  const roomId = document.getElementById("roomSelect").value;
+  const checkIn = document.getElementById("checkIn").value;
+  const checkOut = document.getElementById("checkOut").value;
+  const guests = parseInt(document.getElementById("guests").value) || 1;
+  const alertEl = document.getElementById("bookAlert");
+  if (!roomId || !checkIn || !checkOut) {
+    alertEl.innerHTML = `<div class="alert alert-warning py-2">Please fill all fields</div>`;
+    return;
+  }
+  try {
+    const booking = await api("/api/hotel-bookings", {
+      method: "POST",
+      body: JSON.stringify({
+        hotel_id: parseInt(hotelId),
+        room_id: parseInt(roomId),
+        check_in: checkIn,
+        check_out: checkOut,
+        guests
+      })
+    });
+    alertEl.innerHTML = `<div class="alert alert-success py-2">Booking created! Total: $${booking.total_price}. Status: ${booking.status}</div>`;
+  } catch (e) {
+    alertEl.innerHTML = `<div class="alert alert-danger py-2">${e.message}</div>`;
+  }
+}
+
+load();
+</script>
+</body>
+</html>

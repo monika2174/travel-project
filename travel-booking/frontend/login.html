@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Login – TravelBooking</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+  <link href="css/style.css" rel="stylesheet">
+</head>
+<body class="bg-light d-flex flex-column min-vh-100">
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+  <div class="container">
+    <a class="navbar-brand fw-bold" href="index.html"><i class="bi bi-globe2"></i> TravelBooking</a>
+  </div>
+</nav>
+
+<div class="container flex-grow-1 d-flex align-items-center py-5">
+  <div class="row justify-content-center w-100">
+    <div class="col-md-5 col-lg-4">
+      <div class="card shadow border-0">
+        <div class="card-body p-4">
+          <h3 class="text-center mb-4">Welcome Back</h3>
+          <div id="alertBox"></div>
+          <form id="loginForm">
+            <div class="mb-3">
+              <label class="form-label">Email</label>
+              <input type="email" class="form-control" id="email" required placeholder="you@example.com">
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Password</label>
+              <input type="password" class="form-control" id="password" required placeholder="••••••••">
+            </div>
+            <button type="submit" class="btn btn-primary w-100" id="loginBtn">Login</button>
+          </form>
+          <p class="text-center mt-3 mb-0 small">
+            No account? <a href="register.html">Register</a>
+          </p>
+          <hr>
+          <p class="small text-muted mb-0">Demo accounts after seeding:</p>
+          <ul class="small text-muted">
+            <li>admin@travel.com / admin123</li>
+            <li>manager@travel.com / manager123</li>
+            <li>customer@travel.com / customer123</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="js/config.js"></script>
+<script src="js/auth.js"></script>
+<script>
+document.getElementById("loginForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const btn = document.getElementById("loginBtn");
+  const alertBox = document.getElementById("alertBox");
+  btn.disabled = true;
+  btn.textContent = "Logging in...";
+  alertBox.innerHTML = "";
+
+  const form = new FormData();
+  form.append("username", document.getElementById("email").value);
+  form.append("password", document.getElementById("password").value);
+
+  try {
+    const res = await fetch(`${API_BASE}/api/auth/login`, { method: "POST", body: form });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || "Login failed");
+    setAuth(data);
+    if (data.role === "admin") location.href = "dashboard.html";
+    else if (data.role === "manager") location.href = "dashboard.html";
+    else location.href = "dashboard.html";
+  } catch (err) {
+    alertBox.innerHTML = `<div class="alert alert-danger py-2">${err.message}</div>`;
+    btn.disabled = false;
+    btn.textContent = "Login";
+  }
+});
+</script>
+</body>
+</html>
