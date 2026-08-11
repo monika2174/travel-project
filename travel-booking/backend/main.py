@@ -1,7 +1,21 @@
+from pathlib import Path
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+
 from database import engine, Base
-from routes import auth, destinations, hotels, rooms, trips, bookings, reviews, favorites, admin
+from routes import (
+    auth,
+    destinations,
+    hotels,
+    rooms,
+    trips,
+    bookings,
+    reviews,
+    favorites,
+    admin,
+)
 
 # Create tables
 Base.metadata.create_all(bind=engine)
@@ -20,6 +34,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# API routes
 app.include_router(auth.router)
 app.include_router(destinations.router)
 app.include_router(hotels.router)
@@ -30,14 +45,11 @@ app.include_router(reviews.router)
 app.include_router(favorites.router)
 app.include_router(admin.router)
 
+# Frontend folder
+FRONTEND_DIR = Path(__file__).resolve().parent.parent / "frontend"
 
-@app.get("/")
-def root():
-    return {
-        "message": "Travel Booking API is running",
-        "docs": "/docs",
-        "version": "1.0.0"
-    }
+# Serve the frontend
+app.mount("/", StaticFiles(directory=FRONTEND_DIR, html=True), name="frontend")
 
 
 @app.get("/health")
